@@ -23,7 +23,8 @@ fastify.get('/tictactoe', function (req, rep) {
     rep.sendFile('/tictactoe/index.html')
 })
 
-fastify.listen({port: 80, host: '0.0.0.0'}, function (err, address) {
+// router forwards port 80 to this machine on port 3000
+fastify.listen({port: 3000, host: '0.0.0.0'}, function (err, address) {
     if (err) {
         fastify.log.error(err)
         process.exit(1)
