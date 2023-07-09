@@ -1,5 +1,8 @@
 const fastify = require('fastify')({
-    logger: true
+    logger: {
+        level: "info",
+        file: "logs.txt"
+    }
 })
 const fs = require('fs')
 const path = require('path')
