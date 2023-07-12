@@ -1,3 +1,0 @@
-{"level":30,"time":1688916518268,"pid":249464,"hostname":"alegernov","reqId":"req-6z","req":{"method":"POST","url":"/boaform/admin/formLogin","hostname":"121.98.232.126:80","remoteAddress":"85.208.139.122","remotePort":47822},"msg":"incoming request"}
-{"level":30,"time":1688916518269,"pid":249464,"hostname":"alegernov","reqId":"req-6z","msg":"Route POST:/boaform/admin/formLogin not found"}
-{"level":30,"time":1688916518271,"pid":249464,"hostname":"alegernov","reqId":"req-6z","res":{"statusCode":404},"responseTime":1.8907041549682617,"msg":"request completed"}
