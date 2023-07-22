@@ -3,5 +3,6 @@
         "/",
         "/world",
         "/tictactoe"
-    ]
+    ],
+    "source": "github.com/ethandhunt/ethandhunt-website"
 }

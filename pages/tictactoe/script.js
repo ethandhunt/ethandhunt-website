@@ -46,15 +46,73 @@ function screenToVector(vec) {
     return gridVec
 }
 
+function screenToCoord(vec) {
+    vec = screenToVector(vec)
+    xOff = vec.x
+    yOff = vec.y
+
+    coord = []
+    for (i=dimension-1; i >= 0; i--) {
+        if (i%2 == 0) {
+            coord.unshift(min(floor(xOff/tileDimXSpacing[floor(i/2)]) + 1, 3))
+            xOff %= tileDimXSpacing[floor(i/2)]
+        } else {
+            coord.unshift(min(floor(yOff/tileDimXSpacing[floor(i/2)]) + 1, 3))
+            yOff %= tileDimYSpacing[floor(i/2)]
+        }
+    }
+    return coord
+}
+
 function recalculateGridScreenProjections() {
     gridScreenTL = vectorToScreen(gridTL)
     gridScreenBR = vectorToScreen(gridBR)
+
+}
+
+function redrawPieces() {} // implement later
+
+function placePiece(coord, type) {
+    boardPieces[coordToIndex(coord)] = type
+    if (type < icons.length) {
+        vec = coordToVector(coord)
+        piecesGraphics.fill(icon_tints[type], 100)
+        piecesGraphics.rect(vec.x, vec.y, tileWidth, tileWidth)
+        piecesGraphics.image(icons[type], vec.x, vec.y, tileWidth, tileWidth, 0, 0)
+    } else {
+        vec = coordToVector(coord)
+        piecesGraphics.fill(icon_tints[type%icon_tints.length], 100)
+        piecesGraphics.rect(vec.x, vec.y, tileWidth, tileWidth)
+        piecesGraphics.fill(255)
+        piecesGraphics.textSize(tileWidth)
+        piecesGraphics.textAlign(CENTER, CENTER)
+        piecesGraphics.text(type, vec.x+tileWidth/2, vec.y+tileWidth/2)
+    }
+}
+
+var piecesGraphics
+
+boardPieces = [] // -1 is blank
+var turn
+
+function resetBoard() {
+    boardPieces = Array.from({length: 3**dimension}, (v, i) => -1) // [-1, -1,...]
+
+    piecesGraphics = createGraphics(gridBR.x, gridBR.y)
+    piecesGraphics.background(0,0)
+
+    turn = 0
 }
 
 var gridGraphics
-tileWidth = 20
+
+tileDimXSpacing = []
+tileDimYSpacing = []
+
+tileWidth = 50
 tileSep = tileWidth * 1.2
 tileSepIndexBase = 3.2
+tileBorderWidth = tileWidth * 0.05
 gridTL = new p5.Vector(0,0)
 gridBR = new p5.Vector(0,0)
 gridScreenTL = new p5.Vector(1,1)
@@ -63,16 +121,45 @@ function createGridGraphics() {
     console.log('creating grid graphics...')
     maxi = 3**dimension
     gridBR = new p5.Vector(coordToVector(indexToCoord(maxi-1)).x + tileWidth + 1, coordToVector(indexToCoord(maxi-1)).y + tileWidth + 1)
+    
+
     gridGraphics = createGraphics(gridBR.x, gridBR.y)
-    gridGraphics.background(0,0) // black, fully transparent
+
     gridGraphics.fill(0,0,0,50)
+    gridGraphics.strokeWeight(tileBorderWidth)
     for (let i=0; i < maxi; i++) {
         let vec = coordToVector(indexToCoord(i))
         gridGraphics.square(vec.x, vec.y, tileWidth)
     }
 
+    tileDimXSpacing = Array.from({length: floor(dimension/2 + 0.5)}, (v, i) => 1 + tileSep * tileSepIndexBase ** i)
+    tileDimYSpacing = Array.from({length: floor(dimension/2)}, (v, i) => 1 + tileSep * tileSepIndexBase ** i)
+
+    push()
+    colorMode(HSB)
+    icon_tints = Array.from({length: dimension}, (v,i) => color(i*255/(dimension-1), 255, 255, 0.5))
+    pop()
+
     recalculateGridScreenProjections()
     console.log('created grid graphics')
+}
+
+highlightingQueue = []
+// {type: 'hover'|'aligned', coord: coord}
+
+function highlighting() {
+    for (let i=0; i < highlightingQueue.length; i++) {
+        let q = highlightingQueue[i]
+        if (q.type == 'hover') {
+            push()
+            fill(255, 100)
+            let vec = vectorToScreen(coordToVector(q.coord))
+            rect(vec.x, vec.y, tileWidth*screenScale, tileWidth*screenScale)
+            pop()
+        } else if (q.type == 'aligned') {
+            
+        }
+    }
 }
 
 function resetScale() {// scaling factor of min main canvas dimension
@@ -81,7 +168,7 @@ function resetScale() {// scaling factor of min main canvas dimension
 }
 
 function touchMoved() {
-    if (pointers.length !== 1) return
+    if (pointers.length !== 1 || pointerUpFlag > 0) return
 
     screenOffset.add((mouseX-pmouseX)/screenScale, (mouseY-pmouseY)/screenScale)
     recalculateGridScreenProjections()
@@ -104,9 +191,9 @@ function zoomIn(index) {
     recalculateGridScreenProjections()
 }
 
-pinchSensitivity = 1/500
+pinchSensitivity = 1/350
 function pinchZoom(curr1, curr2, prev1, prev2) {
-    // assume pointers don't move in gridspace
+    // assume pointers don't move in gridspace (except idk how to do midpoint adjustment)
 
     let index = (Math.abs(curr1.clientX - curr2.clientX) - Math.abs(prev1.clientX - prev2.clientX)) * pinchSensitivity
     screenScale *= zoomBase ** index
@@ -121,16 +208,22 @@ function pinchZoom(curr1, curr2, prev1, prev2) {
 // from https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events/Pinch_zoom_gestures
 pointers = []
 prevPointerPositions = []
+pointerTravel = []
 prevDiff = -1
 function pointerdownHandler(ev) {
     pointers.push(ev)
     prevPointerPositions.push({clientX: ev.clientX, clientY: ev.clientY, pointerId: ev.pointerId})
+    pointerTravel.push(0)
 }
 
+// problems: pointerId changes after releasing (on mobile), visible when zooming after moving after zooming without taking pointer off canvas
 function pointermoveHandler(ev) {
     let index = pointers.findIndex(
         (storedPointer) => storedPointer.pointerId === ev.pointerId
     )
+    if (index !== -1) {
+        pointerTravel[index] += Math.abs(dist(pointers[index].clientX, pointers[index].clientY, ev.clientX, ev.clientY))
+    }
     prevPointerPositions[index] = pointers[index]
     pointers[index] = ev
 
@@ -142,9 +235,69 @@ function pointermoveHandler(ev) {
         }
         prevDiff = currDiff
     }
+
+    if (pointers.length == 0 && pointerUpFlag <= 0) {
+        // desktop, cursor movement while mouse isn't pressed
+        let mousePos = new p5.Vector(mouseX, mouseY)
+        let coord = screenToCoord(mousePos)
+        let tileTL = coordToVector(coord)
+        let mouseVec = screenToVector(mousePos)
+
+        // remove previous hover highlight
+        for (let i=0; i < highlightingQueue.length; i++) {
+            if (highlightingQueue[i].type == 'hover') {
+                highlightingQueue.splice(i, 1)
+                i--
+            }
+        }
+
+        if (mouseVec.x - tileTL.x < tileWidth &&
+            mouseVec.y - tileTL.y < tileWidth &&
+            boardPieces[coordToIndex(coord)] === -1) {
+                // add new hover highlight
+                highlightingQueue.push({type: 'hover', coord: coord})
+        }
+    }
+    pointerUpFlag -= 1
 }
 
+travelThreshold = 10
+pointerUpFlag = 0 // wait 2 pointermoveHandler events before allowing movement or highlighting
 function pointerupHandler(ev) {
+    pointerUpFlag = 2
+    if (pointers.length === 1 && pointerTravel[0] < travelThreshold) { // piece placement
+        // desktop && mobile
+        let mousePos = new p5.Vector(mouseX, mouseY)
+        let coord = screenToCoord(mousePos)
+        let tileTL = coordToVector(coord)
+        let mouseVec = screenToVector(mousePos)
+
+        if (mouseVec.x - tileTL.x < tileWidth &&
+            mouseVec.y - tileTL.y < tileWidth) {
+                if (boardPieces[coordToIndex(coord)] === -1) {
+                    // empty piece at coord
+                    placePiece(coord, turn)
+                    turn += 1
+                    turn %= dimension
+
+                    // remove previous hover highlight
+                    for (let i=0; i < highlightingQueue.length; i++) {
+                        if (highlightingQueue[i].type == 'hover') {
+                            highlightingQueue.splice(i, 1)
+                            i--
+                        }
+                    }
+                } else {
+                    // player piece at coord
+                    // highlight this coords aligned positions
+                }
+            }
+    }
+
+    pointercancellishHandler(ev)
+}
+
+function pointercancellishHandler(ev) {
     removeEvent(ev)
 
     if (pointers.length < 2) {
@@ -159,8 +312,22 @@ function removeEvent(ev) {
     )
     pointers.splice(index, 1)
     prevPointerPositions.splice(index, 1)
+    pointerTravel.splice(index, 1)
 }
-  
+
+var icons = []
+function preload() {
+    icon_x = loadImage('tictactoe/icon_x.png')
+    icon_o = loadImage('tictactoe/icon_o.png')
+    icon_delta = loadImage('tictactoe/icon_delta.png')
+    icon_nabla = loadImage('tictactoe/icon_nabla.png')
+    icons = [
+        icon_x,
+        icon_o,
+        icon_delta,
+        icon_nabla
+    ]
+}
 
 screenScale = 1
 screenOffset = new p5.Vector(0,0)
@@ -171,18 +338,29 @@ function setup() {
     canvas.onpointermove = pointermoveHandler;
 
     canvas.onpointerup = pointerupHandler;
-    canvas.onpointercancel = pointerupHandler;
-    canvas.onpointerout = pointerupHandler;
-    canvas.onpointerleave = pointerupHandler;
+
+    canvas.onpointercancel = pointercancellishHandler;
+    // canvas.onpointerout = pointercancellishHandler;
+    // canvas.onpointerleave = pointercancellishHandler;
     createGridGraphics()
     resetScale()
+    resetBoard()
     noSmooth()
+    textFont('monospace')
 }
 
-a = ''
+function imageTransformed(img) {
+    image(img, gridScreenTL.x, gridScreenTL.y, gridScreenBR.x - gridScreenTL.x, gridScreenBR.y - gridScreenTL.y, 0, 0)
+}
+
 function draw() {
     background(200)
-    
-    // image(gridGraphics, gridScreenTL.x + screenOffset.x + gridOffset.x*screenScale, gridScreenTL.y + screenOffset.y + gridOffset.y*screenScale, gridBR.x * screenScale, gridBR.y * screenScale, gridTL.x, gridTL.y, )
-    image(gridGraphics, gridScreenTL.x, gridScreenTL.y, gridScreenBR.x - gridScreenTL.x, gridScreenBR.y - gridScreenTL.y, 0, 0)
+    text(frameCount, 0, 10)
+    text(frameRate(), 0, 20)
+    text(pointers.length, 0, 30)
+
+    imageTransformed(gridGraphics)
+    imageTransformed(piecesGraphics)
+
+    highlighting()
 }

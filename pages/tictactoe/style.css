@@ -2,6 +2,8 @@ html, body {
     margin: 0;
     touch-action: none;
     overflow: hidden;
+    font-family: monospace, monospace;
+    touch-action: none;
 }
 
 .p5Canvas {
