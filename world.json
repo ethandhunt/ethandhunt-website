@@ -2,7 +2,8 @@
     "pages": [
         "/",
         "/world",
-        "/tictactoe"
+        "/tictactoe",
+        "/matter"
     ],
     "source": "github.com/ethandhunt/ethandhunt-website"
 }

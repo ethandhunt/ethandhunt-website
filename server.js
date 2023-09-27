@@ -27,6 +27,10 @@ fastify.get('/tictactoe', function (req, rep) {
     rep.sendFile('/tictactoe/index.html')
 })
 
+fastify.get('/matter', function(req, rep) {
+    rep.sendFile('/matter/index.html')
+})
+
 clients = []
 fastify.register(async function (fastify) {
     fastify.get('/wstest', {websocket: true}, (connection, req) => {
