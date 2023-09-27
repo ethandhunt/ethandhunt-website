@@ -364,3 +364,15 @@ function draw() {
 
     highlighting()
 }
+
+var socket = new WebSocket('ws://' + window.location.host + '/wstest')
+socket.onopen = function (ev) {
+    console.log('socket.onopen', ev)
+    socket.send('a')
+}
+socket.onmessage = function (ev) {
+    console.log('socket.onmessage', ev)
+}
+socket.onclose = function (ev) {
+    console.log('socket.onclose', ev)
+}

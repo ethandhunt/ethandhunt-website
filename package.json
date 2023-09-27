@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/static": "^6.10.2",
+    "@fastify/websocket": "^8.2.0",
     "dotenv": "^16.3.1",
     "fastify": "^4.19.2",
     "fs": "^0.0.1-security"
