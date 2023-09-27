@@ -109,8 +109,14 @@ function draw() {
     simulate(p_list)
 
     for (let i=0; i<p_list.length; i++) {
-        p_list[i].draw()
-        p_list[i].draw_force(p_list)
+        p = p_list[i]
+        if (!((0 <= p.pos.x && p.pos.x <= width) && (0 <= p.pos.y && p.pos.y <= height))) {
+            p_list.pop(i)
+            console.log('popped', i)
+            i--
+        }
+        p.draw()
+        p.draw_force(p_list)
     }
 
 }
